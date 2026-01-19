@@ -1,0 +1,9 @@
+# Nixpacks configuration
+[phases.setup]
+nixPkgs = ["bun"]
+
+[phases.install]
+cmds = ["bun install"]
+
+[start]
+cmd = "bunx drizzle-kit push && bun scripts/migrate-mhtcet.ts"

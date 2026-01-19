@@ -157,17 +157,21 @@ async function migrateChapters() {
 // 🧩 STEP 6: MIGRATE QUESTIONS + OPTIONS (CORE)
 async function migrateQuestions() {
   console.log("⏳ Pre-fetching metadata for fast lookups...");
-  
+
   // 1. Map Subject -> Standard
   // direct DB select avoiding relations dependency
-  const allSubjects = await db.select({ id: subjects.id, standardId: subjects.standardId }).from(subjects);
+  const allSubjects = await db
+    .select({ id: subjects.id, standardId: subjects.standardId })
+    .from(subjects);
   const subjectStandardMap = new Map<string, string>();
   for (const s of allSubjects) subjectStandardMap.set(s.id, s.standardId);
 
   // 2. Map Chapter -> Subject
   // We actually need mapping for New Chapter IDs that we just inserted.
   // We can query the DB for them.
-  const allNewChapters = await db.select({ id: chapters.id, subjectId: chapters.subjectId }).from(chapters);
+  const allNewChapters = await db
+    .select({ id: chapters.id, subjectId: chapters.subjectId })
+    .from(chapters);
   const newChapterSubjectMap = new Map<string, string>();
   for (const c of allNewChapters) newChapterSubjectMap.set(c.id, c.subjectId);
 
@@ -177,117 +181,120 @@ async function migrateQuestions() {
   let skippedCount = 0;
   let offset = 0;
   const BATCH_SIZE = 100;
-  
+
   console.log("🚀 Starting question migration loop...");
 
   // Determine standard ID for "11" once
   const std11Id = standardMap.get("11");
 
   while (true) {
-      // console.log(`⏳ Fetching batch of ${BATCH_SIZE} questions (Offset: ${offset})...`);
-      
-      const legacyQuestions = await legacyDb.query(`
+    // console.log(`⏳ Fetching batch of ${BATCH_SIZE} questions (Offset: ${offset})...`);
+
+    const legacyQuestions = await legacyDb.query(
+      `
         SELECT *
         FROM "QuestionBankQuestion"
         ORDER BY "id" ASC
         LIMIT $1 OFFSET $2
-      `, [BATCH_SIZE, offset]);
+      `,
+      [BATCH_SIZE, offset],
+    );
 
-      if (legacyQuestions.rows.length === 0) {
-          break; // No more questions
+    if (legacyQuestions.rows.length === 0) {
+      break; // No more questions
+    }
+
+    for (const q of legacyQuestions.rows) {
+      if (!q.chapterOriginalId) {
+        skippedCount++;
+        continue;
       }
 
-      for (const q of legacyQuestions.rows) {
-        if (!q.chapterOriginalId) {
-            skippedCount++;
-            continue;
-        }
-
-        let legacyOptions;
-        try {
-            legacyOptions = await legacyDb.query(
-            `SELECT * FROM "QuestionBankOption" WHERE "questionOriginalId" = $1 ORDER BY "order" ASC`,
-            [q.originalId],
-            );
-        } catch (e) {
-            console.error(`Failed to fetch options for Q ${q.id}:`, e);
-            skippedCount++;
-            continue;
-        }
-
-        if (legacyOptions.rows.length !== 4) {
-            skippedCount++;
-            continue;
-        }
-
-        // Sanitize options: Ensure 'order' is present. Fallback to index + 1 if null.
-        const sanitizedOptions = legacyOptions.rows.map((o, idx) => ({
-            ...o,
-            order: o.order != null ? o.order : idx + 1
-        }));
-
-        const correctOption = sanitizedOptions.find((o) => o.isCorrect);
-
-        if (!correctOption) {
-            skippedCount++;
-            continue;
-        }
-
-        if (!chapterMap.has(q.chapterOriginalId)) {
-            skippedCount++;
-            continue;
-        }
-
-        const newChapterId = chapterMap.get(q.chapterOriginalId)!;
-
-        // Resolve Subject and Standard from Maps (Memory lookup - Fast & Safe)
-        const subjectId = newChapterSubjectMap.get(newChapterId);
-        if (!subjectId) {
-            skippedCount++;
-            continue; 
-        }
-
-        const standardId = subjectStandardMap.get(subjectId);
-        if (!standardId) {
-            skippedCount++;
-            continue;
-        }
-
-        const standardEnum = std11Id === standardId ? "STD_11" : "STD_12";
-
-        const questionId = cuid();
-
-        try {
-            await db.insert(questions).values({
-                id: questionId,
-                chapterId: newChapterId,
-                subjectId: subjectId,
-                standard: standardEnum as any,
-                difficulty: mapDifficulty(q.difficultyLevel || "medium") as any,
-                questionText: q.questionText || "",
-                solution: q.solution || null,
-                correctOptionOrder: correctOption.order,
-            });
-
-            questionMap.set(q.originalId, questionId);
-
-            for (const o of sanitizedOptions) {
-                await db.insert(options).values({
-                    id: cuid(),
-                    questionId,
-                    order: o.order,
-                    optionText: o.optionText || "",
-                });
-            }
-            successCount++;
-        } catch (error) {
-            console.error(`Failed to insert question ${q.id}:`, error);
-            skippedCount++;
-        }
+      let legacyOptions;
+      try {
+        legacyOptions = await legacyDb.query(
+          `SELECT * FROM "QuestionBankOption" WHERE "questionOriginalId" = $1 ORDER BY "order" ASC`,
+          [q.originalId],
+        );
+      } catch (e) {
+        console.error(`Failed to fetch options for Q ${q.id}:`, e);
+        skippedCount++;
+        continue;
       }
-      
-      offset += BATCH_SIZE;
-      console.log(`🚀 ${offset} questions processed... options migrated ..!!`);
+
+      if (legacyOptions.rows.length !== 4) {
+        skippedCount++;
+        continue;
+      }
+
+      // Sanitize options: Ensure 'order' is present. Fallback to index + 1 if null.
+      const sanitizedOptions = legacyOptions.rows.map((o, idx) => ({
+        ...o,
+        order: o.order != null ? o.order : idx + 1,
+      }));
+
+      const correctOption = sanitizedOptions.find((o) => o.isCorrect);
+
+      if (!correctOption) {
+        skippedCount++;
+        continue;
+      }
+
+      if (!chapterMap.has(q.chapterOriginalId)) {
+        skippedCount++;
+        continue;
+      }
+
+      const newChapterId = chapterMap.get(q.chapterOriginalId)!;
+
+      // Resolve Subject and Standard from Maps (Memory lookup - Fast & Safe)
+      const subjectId = newChapterSubjectMap.get(newChapterId);
+      if (!subjectId) {
+        skippedCount++;
+        continue;
+      }
+
+      const standardId = subjectStandardMap.get(subjectId);
+      if (!standardId) {
+        skippedCount++;
+        continue;
+      }
+
+      const standardEnum = std11Id === standardId ? "STD_11" : "STD_12";
+
+      const questionId = cuid();
+
+      try {
+        await db.insert(questions).values({
+          id: questionId,
+          chapterId: newChapterId,
+          subjectId: subjectId,
+          standard: standardEnum as any,
+          difficulty: mapDifficulty(q.difficultyLevel || "medium") as any,
+          questionText: q.questionText || "",
+          solution: q.solution || null,
+          correctOptionOrder: correctOption.order,
+        });
+
+        questionMap.set(q.originalId, questionId);
+
+        for (const o of sanitizedOptions) {
+          await db.insert(options).values({
+            id: cuid(),
+            questionId,
+            order: o.order,
+            optionText: o.optionText || "",
+          });
+        }
+        successCount++;
+      } catch (error) {
+        console.error(`Failed to insert question ${q.id}:`, error);
+        skippedCount++;
+      }
+    }
+
+    offset += BATCH_SIZE;
+    console.log(`🚀 ${offset} questions processed... options migrated ..!!`);
   }
 
   console.log(
