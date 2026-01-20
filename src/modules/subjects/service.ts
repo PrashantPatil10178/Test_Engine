@@ -1,8 +1,10 @@
 import { db } from "../../../db/client";
 import { subjects, standards } from "../../../db/schema";
 import { eq, and } from "drizzle-orm";
+import { log } from "../../common/logger";
 
 export const getSubjectsService = async (standard?: "STD_11" | "STD_12") => {
+  log.db("Fetching Subjects", { standard });
   if (standard) {
     const stdRecord = await db.query.standards.findFirst({
       where: eq(standards.standard, standard),

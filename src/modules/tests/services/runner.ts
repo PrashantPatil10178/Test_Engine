@@ -9,8 +9,10 @@ import {
 } from "../../../../db/schema";
 import { eq, inArray, sql } from "drizzle-orm";
 import { v7 as uuidv7 } from "uuid";
+import { log } from "../../../common/logger";
 
 export const startTest = async (testId: string, userId: string) => {
+  log.db("Starting Test Attempt", { testId, userId });
   // Check if user already has active attempt? (Optional)
   const attemptId = uuidv7();
   await db.insert(testAttempts).values({

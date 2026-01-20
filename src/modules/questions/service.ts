@@ -1,6 +1,7 @@
 import { db } from "../../../db/client";
 import { questions, options } from "../../../db/schema";
 import { eq, and, sql } from "drizzle-orm";
+import { log } from "../../common/logger";
 
 type GetQuestionsParams = {
   chapterId?: string;
@@ -21,6 +22,8 @@ export const getQuestionsService = async ({
   if (chapterId) whereConditions.push(eq(questions.chapterId, chapterId));
   if (subjectId) whereConditions.push(eq(questions.subjectId, subjectId));
   if (difficulty) whereConditions.push(eq(questions.difficulty, difficulty));
+
+  log.db("Fetching Questions", { chapterId, subjectId, limit, offset });
 
   const data = await db.query.questions.findMany({
     where: and(...whereConditions),

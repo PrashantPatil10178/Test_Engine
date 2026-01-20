@@ -5,8 +5,12 @@ import { subjectsRoutes } from "./modules/subjects";
 import { chaptersRoutes } from "./modules/chapters";
 import { questionsRoutes } from "./modules/questions";
 import { testsRoutes } from "./modules/tests";
+import { log } from "./common/logger";
 
 const app = new Elysia()
+  .onRequest(({ request }) => {
+    log.req(`${request.method} ${request.url}`);
+  })
   .use(
     swagger({
       documentation: {
@@ -27,8 +31,12 @@ const app = new Elysia()
   .use(chaptersRoutes)
   .use(questionsRoutes)
   .use(testsRoutes)
+  .onError(({ code, error, request }) => {
+    log.error(`Error in ${request.method} ${request.url}`, {
+      code,
+      error: error.message,
+    });
+  })
   .listen(process.env.PORT || 3000);
 
-console.log(
-  `🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`,
-);
+log.info(`🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`);

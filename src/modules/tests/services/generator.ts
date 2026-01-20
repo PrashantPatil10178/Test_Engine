@@ -9,6 +9,7 @@ import {
 } from "../../../../db/schema";
 import { eq, and, inArray, sql, notInArray } from "drizzle-orm";
 import { v7 as uuidv7 } from "uuid";
+import { log } from "../../../common/logger";
 
 type TestType = "PCM" | "PCB";
 
@@ -295,6 +296,7 @@ export const generateTest = async (type: TestType) => {
   }
 
   const testId = uuidv7();
+  log.db("Persisting Test to DB", { testId, type });
   await db.insert(tests).values({
     id: testId,
     type,
