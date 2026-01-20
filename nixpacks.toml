@@ -3,7 +3,7 @@
 nixPkgs = ["bun"]
 
 [phases.install]
-cmds = ["bun install"]
+cmds = ["bun install","bunx drizzle-kit generate"]
 
 
 [start]
