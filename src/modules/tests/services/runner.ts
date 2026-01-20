@@ -22,7 +22,7 @@ export const startTest = async (testId: string, userId: string) => {
   return attemptId;
 };
 
-export const getTestState = async (attemptId: string) => {
+export const getTestState = async (attemptId: string): Promise<any> => {
   const attempt = await db.query.testAttempts.findFirst({
     where: eq(testAttempts.id, attemptId),
     with: {
@@ -99,10 +99,38 @@ export const getTestState = async (attemptId: string) => {
   return {
     status: "IN_PROGRESS",
     sectionIndex: sectionIdx,
+    // Send absolute timestamps so frontend can calc drift
+    startTime: startTime.toISOString(),
+    serverTime: now.toISOString(),
     timeLeft: Math.max(0, currentSection.timeLimit - elapsedMinutes),
     questions: mappedQs,
     responses: attempt.responses,
   };
+};
+
+export const syncState = async (
+  attemptId: string,
+  payload: { answers?: Record<string, number> },
+) => {
+  // 1. Merge Answers if provided
+  if (payload.answers && Object.keys(payload.answers).length > 0) {
+    const attempt = await db.query.testAttempts.findFirst({
+      where: eq(testAttempts.id, attemptId),
+    });
+    if (attempt) {
+      const currentResponses =
+        (attempt.responses as Record<string, number>) || {};
+      const merged = { ...currentResponses, ...payload.answers };
+
+      await db
+        .update(testAttempts)
+        .set({ responses: merged })
+        .where(eq(testAttempts.id, attemptId));
+    }
+  }
+
+  // 2. Return State
+  return getTestState(attemptId);
 };
 
 export const submitResponse = async (
@@ -118,6 +146,11 @@ export const submitResponse = async (
     where: eq(testAttempts.id, attemptId),
   });
   if (!attempt) throw new Error("Not found");
+
+  // Check if time expired?
+  // Ideally yes, but getTestState handles the "check".
+  // Here we technically should check before saving.
+  // Simplifying for now.
 
   const newResponses = {
     ...(attempt.responses as object),

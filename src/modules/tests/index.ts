@@ -5,6 +5,7 @@ import {
   getTestState,
   submitResponse,
   advanceSection,
+  syncState,
 } from "./services/runner";
 import { successResponse, errorResponse } from "../../common/response";
 
@@ -72,6 +73,27 @@ export const testsRoutes = new Elysia({ prefix: "/tests" })
         attemptId: t.String(),
         questionId: t.String(),
         optionOrder: t.Number(),
+      }),
+    },
+  )
+
+  // 4.5 Bulk Sync (For reconnection / offline support)
+  .post(
+    "/sync",
+    async ({ body }) => {
+      try {
+        const state = await syncState(body.attemptId, {
+          answers: body.answers,
+        });
+        return successResponse(state, "Synced");
+      } catch (e) {
+        return errorResponse("Sync failed", e);
+      }
+    },
+    {
+      body: t.Object({
+        attemptId: t.String(),
+        answers: t.Optional(t.Record(t.String(), t.Number())),
       }),
     },
   )

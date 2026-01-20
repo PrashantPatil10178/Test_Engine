@@ -18,7 +18,11 @@ const app = new Elysia()
     }),
   )
   .use(cors())
-  .get("/", () => "MHT-CET API is running! 🚀")
+  .get("/", () => {
+    return {
+      message: "Running",
+    };
+  })
   .use(subjectsRoutes)
   .use(chaptersRoutes)
   .use(questionsRoutes)
