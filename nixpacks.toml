@@ -7,4 +7,4 @@ cmds = ["bun install","bunx drizzle-kit push","bun scripts/migrate-mhtcet.ts"]
 
 
 [start]
-cmd = "bunx drizzle-kit push && bun scripts/migrate-mhtcet.ts"
+cmd = "bun src/index.ts"

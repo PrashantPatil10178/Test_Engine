@@ -10,7 +10,8 @@ import {
   options,
 } from "../db/schema";
 
-import { cuid, mapStandard, mapSubjectCode, mapDifficulty } from "./helpers";
+import { mapStandard, mapSubjectCode, mapDifficulty } from "./helpers";
+import { v7 as uuidv7 } from "uuid";
 
 // 🧩 STEP 2: MIGRATION STATE (ID MAPS)
 const standardMap = new Map<string, string>(); // '11', '12' -> id
@@ -27,8 +28,8 @@ const getSubjectKey = (code: string, standardId: string) =>
 // 🧩 STEP 3: MIGRATE STANDARDS
 async function migrateStandards() {
   const data = [
-    { id: cuid(), standard: "STD_11" as const, order: 1 },
-    { id: cuid(), standard: "STD_12" as const, order: 2 },
+    { id: uuidv7(), standard: "STD_11" as const, order: 1 },
+    { id: uuidv7(), standard: "STD_12" as const, order: 2 },
   ];
 
   await db.insert(standards).values(data).onConflictDoNothing();
@@ -80,7 +81,7 @@ async function migrateSubjects() {
         continue;
       }
 
-      const id = cuid();
+      const id = uuidv7();
       await db.insert(subjects).values({
         id,
         code: code as any, // Cast because helper returns string
@@ -105,7 +106,7 @@ async function migrateChapters() {
   `);
 
   for (const row of legacyChapters.rows) {
-    const id = cuid();
+    const id = uuidv7();
     const stdId = standardMap.get(row.standard);
 
     if (!stdId) {
@@ -262,7 +263,7 @@ async function migrateQuestions() {
 
       const standardEnum = std11Id === standardId ? "STD_11" : "STD_12";
 
-      const questionId = cuid();
+      const questionId = uuidv7();
 
       try {
         await db.insert(questions).values({
@@ -280,7 +281,7 @@ async function migrateQuestions() {
 
         for (const o of sanitizedOptions) {
           await db.insert(options).values({
-            id: cuid(),
+            id: uuidv7(),
             questionId,
             order: o.order,
             optionText: o.optionText || "",

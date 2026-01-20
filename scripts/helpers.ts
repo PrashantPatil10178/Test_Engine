@@ -1,6 +1,7 @@
-import { createId } from "@paralleldrive/cuid2";
+import { v7 as uuidv7 } from "uuid";
 
-export const cuid = () => createId();
+// Replaced CUID with UUID v7 for Postgres performance
+export const cuid = () => uuidv7();
 
 export function mapStandard(std: string | number) {
   const s = String(std).trim();

@@ -6,6 +6,8 @@ import {
   timestamp,
   unique,
   index,
+  jsonb,
+  uuid,
 } from "drizzle-orm/pg-core";
 
 //ENUMS
@@ -22,7 +24,7 @@ export const subjectCodeEnum = pgEnum("subject_code", [
 export const difficultyEnum = pgEnum("difficulty", ["EASY", "MEDIUM", "HARD"]);
 
 export const standards = pgTable("standards", {
-  id: text("id").primaryKey(),
+  id: uuid("id").primaryKey().defaultRandom(),
   standard: standardEnum("standard").notNull().unique(),
   order: integer("order").notNull(),
 });
@@ -30,11 +32,11 @@ export const standards = pgTable("standards", {
 export const subjects = pgTable(
   "subjects",
   {
-    id: text("id").primaryKey(),
+    id: uuid("id").primaryKey().defaultRandom(),
     code: subjectCodeEnum("code").notNull(),
     order: integer("order").notNull(),
 
-    standardId: text("standard_id")
+    standardId: uuid("standard_id")
       .notNull()
       .references(() => standards.id, { onDelete: "cascade" }),
   },
@@ -46,11 +48,11 @@ export const subjects = pgTable(
 export const chapters = pgTable(
   "chapters",
   {
-    id: text("id").primaryKey(),
+    id: uuid("id").primaryKey().defaultRandom(),
     name: text("name").notNull(),
     order: integer("order").notNull(),
 
-    subjectId: text("subject_id")
+    subjectId: uuid("subject_id")
       .notNull()
       .references(() => subjects.id, { onDelete: "cascade" }),
   },
@@ -63,13 +65,13 @@ export const chapters = pgTable(
 export const questions = pgTable(
   "questions",
   {
-    id: text("id").primaryKey(),
+    id: uuid("id").primaryKey().defaultRandom(),
 
-    chapterId: text("chapter_id")
+    chapterId: uuid("chapter_id")
       .notNull()
       .references(() => chapters.id, { onDelete: "cascade" }),
 
-    subjectId: text("subject_id")
+    subjectId: uuid("subject_id")
       .notNull()
       .references(() => subjects.id),
 
@@ -100,9 +102,9 @@ export const questions = pgTable(
 export const options = pgTable(
   "options",
   {
-    id: text("id").primaryKey(),
+    id: uuid("id").primaryKey().defaultRandom(),
 
-    questionId: text("question_id")
+    questionId: uuid("question_id")
       .notNull()
       .references(() => questions.id, { onDelete: "cascade" }),
 
@@ -114,3 +116,39 @@ export const options = pgTable(
     questionIdx: index().on(t.questionId),
   }),
 );
+
+// --- TEST ENGINE TABLES ---
+
+export const tests = pgTable("tests", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  type: text("type").notNull(), // 'PCM' or 'PCB'
+
+  // Store generated question IDs per section to ensure immutability
+  // Structure: { section1: [qIds...], section2: [qIds...] }
+  questionSet: jsonb("question_set").notNull(),
+
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const testAttempts = pgTable("test_attempts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  testId: uuid("test_id")
+    .references(() => tests.id)
+    .notNull(),
+  userId: text("user_id").notNull(), // Assuming user system exists or will exist
+
+  status: text("status").notNull(), // 'IN_PROGRESS', 'COMPLETED'
+
+  // Tracking current section
+  currentSectionIndex: integer("current_section_index").default(0).notNull(),
+  sectionStartTime: timestamp("section_start_time").defaultNow(), // When the *current* section was started
+
+  // User responses: { questionId: selectedOptionOrder }
+  responses: jsonb("responses").default({}).notNull(),
+
+  score: integer("score"),
+  analytics: jsonb("analytics"), // Store comprehensive report
+
+  createdAt: timestamp("created_at").defaultNow(),
+  submittedAt: timestamp("submitted_at"),
+});

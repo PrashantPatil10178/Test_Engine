@@ -14,6 +14,5 @@ RUN bunx drizzle-kit push
 RUN bun scripts/migrate-mhtcet.ts
 
 # Environment variables should be passed at runtime using --env-file or -e flags
-# 1. Push schema to DB (ensure tables exist)
-# 2. Run the migration script
-CMD ["/bin/sh", "-c", "bunx drizzle-kit push && bun scripts/migrate-mhtcet.ts"]
+# CMD runs the API
+CMD ["bun", "src/index.ts"]
