@@ -15,7 +15,9 @@ jobs:
           username: root
           key: ${{ secrets.SSH_KEY }}
           script: |
-            cd /root/Test_Engine
-            git pull
-            bun install
+            bash -lc "
+            cd /root/Test_Engine &&
+            git pull &&
+            bun install &&
             pm2 restart my-app
+             "
