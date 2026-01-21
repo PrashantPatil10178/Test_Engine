@@ -1,5 +1,9 @@
 import { Elysia, t } from "elysia";
-import { generateTest } from "./services/generator";
+import {
+  generateTest,
+  generateSubjectTest,
+  generateChapterTest,
+} from "./services/generator";
 import {
   startTest,
   getTestState,
@@ -24,6 +28,56 @@ export const testsRoutes = new Elysia({ prefix: "/tests" })
     {
       body: t.Object({
         type: t.Union([t.Literal("PCM"), t.Literal("PCB")]),
+      }),
+    },
+  )
+  .post(
+    "/create/subject",
+    async ({ body }) => {
+      try {
+        const testId = await generateSubjectTest(
+          body.subjectId,
+          body.count,
+          body.time,
+        );
+        return successResponse(
+          { testId },
+          "Subject Test generated successfully",
+        );
+      } catch (e) {
+        return errorResponse("Failed to generate subject test", e);
+      }
+    },
+    {
+      body: t.Object({
+        subjectId: t.String(),
+        count: t.Optional(t.Number()),
+        time: t.Optional(t.Number()),
+      }),
+    },
+  )
+  .post(
+    "/create/chapter",
+    async ({ body }) => {
+      try {
+        const testId = await generateChapterTest(
+          body.chapterId,
+          body.count,
+          body.time,
+        );
+        return successResponse(
+          { testId },
+          "Chapter Test generated successfully",
+        );
+      } catch (e) {
+        return errorResponse("Failed to generate chapter test", e);
+      }
+    },
+    {
+      body: t.Object({
+        chapterId: t.String(),
+        count: t.Optional(t.Number()),
+        time: t.Optional(t.Number()),
       }),
     },
   )

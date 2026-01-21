@@ -305,3 +305,86 @@ export const generateTest = async (type: TestType) => {
 
   return testId;
 };
+
+export const generateSubjectTest = async (
+  subjectId: string,
+  count: number = 20,
+  timeLimit?: number,
+) => {
+  const qs = await db
+    .select({ id: questions.id })
+    .from(questions)
+    .where(eq(questions.subjectId, subjectId))
+    .orderBy(sql`RANDOM()`)
+    .limit(count);
+
+  const qIds = qs.map((q) => q.id);
+
+  if (qIds.length === 0) {
+    throw new Error("No questions found for this subject");
+  }
+
+  // default 1 min per question
+  const time = timeLimit || qIds.length * 60;
+
+  const testId = uuidv7();
+  log.db("Persisting Subject Test to DB", {
+    testId,
+    subjectId,
+    count: qIds.length,
+  });
+
+  await db.insert(tests).values({
+    id: testId,
+    type: "SUBJECT_WISE",
+    questionSet: [
+      {
+        questions: qIds,
+        timeLimit: time,
+      },
+    ],
+  });
+
+  return testId;
+};
+
+export const generateChapterTest = async (
+  chapterId: string,
+  count: number = 10,
+  timeLimit?: number,
+) => {
+  const qs = await db
+    .select({ id: questions.id })
+    .from(questions)
+    .where(eq(questions.chapterId, chapterId))
+    .orderBy(sql`RANDOM()`)
+    .limit(count);
+
+  const qIds = qs.map((q) => q.id);
+
+  if (qIds.length === 0) {
+    throw new Error("No questions found for this chapter");
+  }
+
+  const time = timeLimit || qIds.length * 60;
+
+  const testId = uuidv7();
+  log.db("Persisting Chapter Test to DB", {
+    testId,
+    chapterId,
+    count: qIds.length,
+  });
+
+  await db.insert(tests).values({
+    id: testId,
+    type: "CHAPTER_WISE",
+    questionSet: [
+      {
+        questions: qIds,
+        timeLimit: time,
+      },
+    ],
+  });
+
+  return testId;
+};
